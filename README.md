@@ -103,6 +103,10 @@ Use it as:
 - C++17 compiler
 - JUCE framework
 
+## Install VST 
+
+Either copy the vst3 folder to where you have vst 3's or.. 
+
 ### Build Steps
 ```bash
 git clone https://github.com/anttiluode/TakensPhaseSpaceVisualizerVST/
