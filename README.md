@@ -106,7 +106,7 @@ Use it as:
 ### Build Steps
 ```bash
 git clone https://github.com/anttiluode/TakensPhaseSpaceVisualizerVST/
-cd TakensPhaseSpace
+cd TakensPhaseSpaceVisualizerVST
 
 git clone https://github.com/juce-framework/JUCE.git JUCE
 
