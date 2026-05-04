@@ -2,7 +2,8 @@
 
 EDIT: 
 
-Use Phasespacemicroscope3.py with VB Audio cable as the vst was not as good. 
+Use Phasespacemicroscope3.py (standalone) with VB Audio cable as the vst was not as good. 
+So channel something to vb output and use the vb input in the code. 
 
 A Real-Time Topological Window into Audio Dynamics
 
