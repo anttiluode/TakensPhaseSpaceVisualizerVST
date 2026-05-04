@@ -105,7 +105,7 @@ Use it as:
 
 ### Build Steps
 ```bash
-git clone [<your-repo-url>](https://github.com/anttiluode/TakensPhaseSpaceVisualizerVST/)
+git clone https://github.com/anttiluode/TakensPhaseSpaceVisualizerVST/
 cd TakensPhaseSpace
 
 git clone https://github.com/juce-framework/JUCE.git JUCE
