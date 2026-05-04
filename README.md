@@ -4,8 +4,10 @@ EDIT:
 
 Use Phasespacemicroscope3.py (standalone) with VB Audio cable as the vst was not as good. 
 So channel something to vb output and use the vb input in the code. 
+Use this pip line to intall its requirements: pip install numpy sounddevice scipy matplotlib 
 
-A Real-Time Topological Window into Audio Dynamics
+
+## A Real-Time Topological Window into Audio Dynamics
 
 The Takens Phase Space Visualizer is a JUCE-based audio analysis plugin that transforms your incoming audio into a living, breathing geometric portrait. Unlike traditional oscilloscopes or spectrum analyzers, this plugin reveals the hidden topology of your sound by reconstructing its phase space manifold in real time.
 
