@@ -1,5 +1,7 @@
 # Takens Phase Space Visualizer
 
+![Takens](takensphasespace.png)
+
 EDIT EDIT: 
 
 Ok the vst works now as well as the stand alone Phasspacemicroscope3.py that it was based on . 
