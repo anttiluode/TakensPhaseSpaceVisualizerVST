@@ -5,9 +5,10 @@
 juce::AudioProcessorValueTreeState::ParameterLayout TakensProcessor::createLayout() {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
     
+    // Changed to Samples to match Python exactly (1 to 200 samples)
     layout.add(std::make_unique<juce::AudioParameterFloat>(
-        "delay_tau", "Delay τ (ms)", 
-        juce::NormalisableRange<float>(1.0f, 80.0f, 0.1f, 0.5f), 
+        "delay_tau", "Delay τ (samples)", 
+        juce::NormalisableRange<float>(1.0f, 200.0f, 1.0f, 1.0f), 
         15.0f));
     
     layout.add(std::make_unique<juce::AudioParameterFloat>(
@@ -29,25 +30,14 @@ juce::AudioProcessorEditor* TakensProcessor::createEditor() {
 }
 
 void TakensProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
-    this->sampleRate = sampleRate;
-    int delaySamples = (int)(sampleRate * 0.1); // 100ms max
-    delayBuffer.assign(delaySamples + 10, 0.0f);
-    writeIndex = 0;
-    
-    (void)samplesPerBlock; // suppress unused parameter warning
+    juce::ignoreUnused(sampleRate, samplesPerBlock);
+    writeIndex.store(0);
+    std::fill(ringBuffer.begin(), ringBuffer.end(), 0.0f);
 }
 
 void TakensProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
-    float delayMs = apvts.getRawParameterValue("delay_tau")->load();
     float inputGain = apvts.getRawParameterValue("input_gain")->load();
     
-    int delaySamples = (int)(delayMs * sampleRate / 1000.0f);
-    
-    // Avoid division by zero or negative delay
-    if (delaySamples < 1) delaySamples = 1;
-    if (delaySamples >= (int)delayBuffer.size()) delaySamples = (int)delayBuffer.size() - 1;
-    
-    // Update RMS
     float rmsSum = 0.0f;
     int totalSamples = 0;
     
@@ -57,35 +47,23 @@ void TakensProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiB
         for (int s = 0; s < buffer.getNumSamples(); ++s) {
             float input = channelData[s] * inputGain;
             
-            // Read delayed value for embedding
-            int readIndex = writeIndex - delaySamples;
-            if (readIndex < 0) readIndex += (int)delayBuffer.size();
-            
-            float delayed = delayBuffer[readIndex];
-            
-            // Store current sample
-            delayBuffer[writeIndex] = input;
-            writeIndex = (writeIndex + 1) % (int)delayBuffer.size();
-            
-            // Send to GUI for visualization (channel 0 only)
-            if (ch == 0 && s % 4 == 0) {
-                scopeX.store(input);
-                scopeY.store(delayed);
+            // Only capture Channel 0 (Mono/Left) for the visualizer
+            if (ch == 0) {
+                int currentIdx = writeIndex.load(std::memory_order_relaxed);
+                ringBuffer[(size_t)currentIdx] = input;
+                writeIndex.store((currentIdx + 1) % bufferSize, std::memory_order_relaxed);
+                
+                rmsSum += input * input;
+                totalSamples++;
             }
             
             // Pass audio through unchanged (we're just analyzing)
             channelData[s] = input;
-            
-            // Accumulate for RMS
-            rmsSum += input * input;
-            totalSamples++;
         }
     }
     
-    // Calculate and store RMS
     if (totalSamples > 0) {
-        float rms = std::sqrt(rmsSum / totalSamples);
-        rmsLevel.store(rms);
+        rmsLevel.store(std::sqrt(rmsSum / totalSamples));
     }
 }
 

@@ -1,7 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include <deque>
 
 class TakensEditor : public juce::AudioProcessorEditor, private juce::Timer {
 public:
@@ -22,14 +21,10 @@ private:
     
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> aDelay, aGain;
     
-    // Phase space path
-    std::deque<juce::Point<float>> scopePath;
-    static constexpr int MAX_SCOPE_PTS = 500;
-    
     // Display points control
     juce::ComboBox pointsCombo;
     juce::Label pointsLabel;
-    int displayPoints = 2000;
+    int displayPoints = 3000;
     
     void setupSlider(juce::Slider& s, juce::Label& l, const juce::String& name);
     void updateDisplayPoints();

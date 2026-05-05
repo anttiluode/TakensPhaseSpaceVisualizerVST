@@ -12,7 +12,7 @@ TakensEditor::TakensEditor(TakensProcessor& p)
     setResizable(true, true);
     setResizeLimits(500, 500, 1500, 1500);
     
-    setupSlider(sDelay, lDelay, "Delay τ (ms)");
+    setupSlider(sDelay, lDelay, "Delay τ (samples)");
     setupSlider(sGain, lGain, "Input Gain");
     
     aDelay = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
@@ -20,7 +20,6 @@ TakensEditor::TakensEditor(TakensProcessor& p)
     aGain = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
         p.apvts, "input_gain", sGain);
     
-    // Points selector
     pointsLabel.setText("Display Points", juce::dontSendNotification);
     pointsLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     pointsLabel.setJustificationType(juce::Justification::centred);
@@ -29,20 +28,21 @@ TakensEditor::TakensEditor(TakensProcessor& p)
     pointsCombo.addItem("500", 500);
     pointsCombo.addItem("1000", 1000);
     pointsCombo.addItem("2000", 2000);
+    pointsCombo.addItem("3000", 3000);
     pointsCombo.addItem("4000", 4000);
     pointsCombo.addItem("8000", 8000);
-    pointsCombo.setSelectedId(2000, juce::dontSendNotification);
+    pointsCombo.setSelectedId(3000, juce::dontSendNotification); // Matches python default
     pointsCombo.onChange = [this] { updateDisplayPoints(); };
     pointsCombo.setColour(juce::ComboBox::backgroundColourId, juce::Colour(0xff1a1a3a));
     pointsCombo.setColour(juce::ComboBox::textColourId, TRACE_COLOR);
     addAndMakeVisible(pointsCombo);
     
-    // RMS Label
     rmsLabel.setText("RMS: 0.000", juce::dontSendNotification);
     rmsLabel.setColour(juce::Label::textColourId, TRACE_COLOR);
     rmsLabel.setJustificationType(juce::Justification::centredRight);
     addAndMakeVisible(rmsLabel);
     
+    updateDisplayPoints();
     startTimerHz(30);
 }
 
@@ -57,8 +57,6 @@ void TakensEditor::setupSlider(juce::Slider& s, juce::Label& l, const juce::Stri
     s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 70, 18);
     s.setColour(juce::Slider::thumbColourId, SLIDER_COLOR);
     s.setColour(juce::Slider::rotarySliderFillColourId, TRACE_COLOR);
-    // FIXED: remove the non-existent setTextBoxTextColour call
-    // Text box text color is controlled via LookAndFeel or just use default
     l.setText(name, juce::dontSendNotification);
     l.setJustificationType(juce::Justification::centred);
     l.setColour(juce::Label::textColourId, juce::Colours::grey);
@@ -69,15 +67,7 @@ void TakensEditor::updateDisplayPoints() {
 }
 
 void TakensEditor::timerCallback() {
-    float x = processor.scopeX.load();
-    float y = processor.scopeY.load();
     float rms = processor.rmsLevel.load();
-    
-    scopePath.push_back({x, y});
-    while (scopePath.size() > displayPoints) {
-        scopePath.pop_front();
-    }
-    
     rmsLabel.setText(juce::String::formatted("RMS: %.4f", rms), juce::dontSendNotification);
     repaint();
 }
@@ -85,21 +75,18 @@ void TakensEditor::timerCallback() {
 void TakensEditor::paint(juce::Graphics& g) {
     g.fillAll(BG_COLOR);
     
-    // Phase space area
     juce::Rectangle<int> plotArea(40, 40, getWidth() - 80, getHeight() - 160);
     g.setColour(juce::Colour(0xff111420));
     g.fillRect(plotArea);
     g.setColour(GRID_COLOR);
     g.drawRect(plotArea, 1.5f);
     
-    // Grid lines
     int cx = plotArea.getCentreX();
     int cy = plotArea.getCentreY();
     g.setColour(GRID_COLOR);
     g.drawLine(cx, plotArea.getY(), cx, plotArea.getBottom());
     g.drawLine(plotArea.getX(), cy, plotArea.getRight(), cy);
     
-    // Minor grid
     g.setColour(GRID_COLOR.withAlpha(0.3f));
     for (float t = -1.0f; t <= 1.0f; t += 0.5f) {
         if (std::abs(t) < 0.01f) continue;
@@ -109,56 +96,63 @@ void TakensEditor::paint(juce::Graphics& g) {
         g.drawLine(plotArea.getX(), yOffset, plotArea.getRight(), yOffset);
     }
     
-    // Draw trace
-    if (scopePath.size() > 1) {
-        // Auto-scale to fit ~60% of the plot area
-        float maxAbs = 0.001f;
-        for (const auto& pt : scopePath) {
-            maxAbs = std::max({maxAbs, std::abs(pt.x), std::abs(pt.y)});
-        }
+    // TAKENS EMBEDDING LOGIC
+    int delaySamples = (int)sDelay.getValue();
+    int currentWrite = processor.writeIndex.load(std::memory_order_relaxed);
+    int bufSize = TakensProcessor::bufferSize;
+    
+    // Extract the points from the ring buffer backwards
+    std::vector<juce::Point<float>> points;
+    points.reserve(displayPoints);
+    float maxAbs = 0.0001f;
+    
+    for (int i = 0; i < displayPoints; ++i) {
+        int t = currentWrite - 1 - i;
+        while (t < 0) t += bufSize; // Wrap around ring buffer
         
-        float scaleX = (plotArea.getWidth() * 0.5f) / maxAbs;
-        float scaleY = (plotArea.getHeight() * 0.5f) / maxAbs;
+        int t_tau = t - delaySamples;
+        while (t_tau < 0) t_tau += bufSize; // Wrap around for delay
+        
+        float x = processor.ringBuffer[(size_t)t];
+        float y = processor.ringBuffer[(size_t)t_tau];
+        
+        points.push_back({x, y});
+        maxAbs = std::max({maxAbs, std::abs(x), std::abs(y)});
+    }
+    
+    // Draw Scatter Plot Trace
+    if (points.size() > 1) {
+        // Auto-scale to fit nicely, imitating Python's max(std) sizing
+        float hr = maxAbs * 2.5f; 
+        if (hr < 1e-9f) hr = 1.0f; // Prevent division by zero on silence
+        
+        float scaleX = (plotArea.getWidth() * 0.5f) / hr;
+        float scaleY = (plotArea.getHeight() * 0.5f) / hr;
         float scale = std::min(scaleX, scaleY);
         
-        juce::Path path;
-        bool first = true;
-        
-        for (const auto& pt : scopePath) {
+        // Mimic matplotlib's scatter dots instead of connecting lines
+        g.setColour(TRACE_COLOR.withAlpha(0.7f));
+        for (const auto& pt : points) {
             float px = cx + pt.x * scale;
             float py = cy - pt.y * scale; // Invert Y for screen coords
             
-            if (first) {
-                path.startNewSubPath(px, py);
-                first = false;
-            } else {
-                path.lineTo(px, py);
+            if (plotArea.contains(px, py)) {
+                // Draw 2x2 dot 
+                g.fillEllipse(px - 1.0f, py - 1.0f, 2.0f, 2.0f);
             }
         }
-        
-        // Glow
-        g.setColour(TRACE_COLOR.withAlpha(0.15f));
-        g.strokePath(path, juce::PathStrokeType(5.0f));
-        
-        // Main trace
-        g.setColour(TRACE_COLOR);
-        g.strokePath(path, juce::PathStrokeType(1.8f));
     }
     
     // Labels
     g.setColour(juce::Colours::grey);
     g.setFont(12.0f);
-    g.drawText("S(t)", plotArea.getRight() - 35, cy + 5, 30, 15, 
-               juce::Justification::centred);
-    g.drawText("S(t+τ)", cx + 5, plotArea.getY() + 5, 50, 15,
-               juce::Justification::centred);
+    g.drawText("S(t)", plotArea.getRight() - 35, cy + 5, 30, 15, juce::Justification::centred);
+    g.drawText("S(t+τ)", cx + 5, plotArea.getY() + 5, 50, 15, juce::Justification::centred);
     
-    // Title
-    float delayMs = sDelay.getValue();
     g.setFont(14.0f);
     g.setColour(TRACE_COLOR);
-    g.drawText(juce::String::formatted("Takens Phase Space  |  τ = %.1f ms  |  Points: %d", 
-               delayMs, displayPoints),
+    g.drawText(juce::String::formatted("Takens Phase Space  |  τ = %d samples  |  Points: %d", 
+               delaySamples, displayPoints),
                plotArea.getX(), plotArea.getY() - 25, plotArea.getWidth(), 20,
                juce::Justification::centred);
 }
@@ -177,11 +171,9 @@ void TakensEditor::resized() {
     positionKnob(sDelay, lDelay, 0);
     positionKnob(sGain, lGain, 1);
     
-    // Points control position
     int pointsX = spacing + 2 * (knobSize + spacing);
     pointsLabel.setBounds(pointsX, y, knobSize, 20);
     pointsCombo.setBounds(pointsX, y + 25, knobSize, 30);
     
-    // RMS label
     rmsLabel.setBounds(getWidth() - 120, 15, 100, 20);
 }
