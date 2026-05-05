@@ -2,6 +2,11 @@
 
 ![Takens](takensphasespace.png)
 
+EDIT EDIT EDIT: 
+
+Added 3d version to its own folder with built vst3 folder and build files that you can build like 
+this version. Note, you can turn the 3D attractor by grapping on it.  
+
 EDIT EDIT: 
 
 Ok the vst works now as well as the stand alone Phasspacemicroscope3.py that it was based on . 
