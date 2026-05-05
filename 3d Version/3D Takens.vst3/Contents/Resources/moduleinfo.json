@@ -1,0 +1,50 @@
+{
+  "Name": "3D Takens",
+  "Version": "1.0.0",
+  "Factory Info": {
+    "Vendor": "PerceptionLab",
+    "URL": "",
+    "E-Mail": "",
+    "Flags": {
+      "Unicode": true,
+      "Classes Discardable": false,
+      "Component Non Discardable": false,
+    },
+  },
+  "Classes": [
+    {
+      "CID": "ABCDEF019182FAEB50724C62546B3344",
+      "Category": "Audio Module Class",
+      "Name": "3D Takens",
+      "Vendor": "PerceptionLab",
+      "Version": "1.0.0",
+      "SDKVersion": "VST 3.8.0",
+      "Sub Categories": [
+        "Fx",
+        "Fx",
+        "Visualization",
+      ],
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+    {
+      "CID": "ABCDEF011234ABCD50724C62546B3344",
+      "Category": "Component Controller Class",
+      "Name": "3D Takens",
+      "Vendor": "PerceptionLab",
+      "Version": "1.0.0",
+      "SDKVersion": "VST 3.8.0",
+      "Sub Categories": [
+        "Fx",
+        "Fx",
+        "Visualization",
+      ],
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": [
+      ],
+    },
+  ],
+}
