@@ -1,6 +1,11 @@
 # Takens Phase Space Visualizer
 
-EDIT: 
+EDIT EDIT: 
+
+Ok the vst works now as well as the stand alone Phasspacemicroscope3.py that it was based on . 
+
+
+EDIT: (Ignore) 
 
 Use Phasespacemicroscope3.py (standalone) with VB Audio cable as the vst was not as good. 
 So channel something to vb output and use the vb input in the code. 
